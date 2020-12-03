@@ -35,16 +35,55 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
             if list.is_empty() {
                 expr
             } else {
-                let res = eval_ast(expr, env);
-                match res {
-                    MalType::List(v) => match v.first() {
-                        Some(MalType::BuiltinFn(func)) => func(v.into_iter().skip(1).collect()),
-                        None | Some(_) => {
-                            panic!("expected first element to be a function");
+                let bultin_macro = match list.first() {
+                    Some(MalType::Symbol(sym)) => match sym.as_ref() {
+                        "def!" => {
+                            if let MalType::Symbol(a_name) = &list[1] {
+                                env.set(a_name.as_ref(), eval(list[2].to_owned(), Rc::clone(&env)));
+                            } else {
+                                panic!("Expected symbol for def!, received {:?}", &list[1])
+                            }
+                            Some(MalType::Nil)
                         }
+
+                        "let*" => {
+                            if let MalType::List(bindings) = &list[1] {
+                                let inner_env = Rc::new(Env::new(Some(Rc::clone(&env))));
+                                for binding in bindings {
+                                    if let MalType::List(list) = binding {
+                                        if let [MalType::Symbol(k), v] = &list[..] {
+                                            inner_env
+                                                .set(k, eval(v.to_owned(), Rc::clone(&inner_env)));
+                                        }
+                                    } else {
+                                        panic!("Expected a list for binding, found {:?}", binding);
+                                    }
+                                }
+
+                                Some(eval(list[2].to_owned(), Rc::clone(&inner_env)))
+                            } else {
+                                panic!("Expected list of bindings, found {:?}", &list[1]);
+                            }
+                        }
+                        _ => None,
                     },
-                    _ => {
-                        panic!("expected list");
+                    _ => None,
+                };
+
+                // we first test if the typed expression is a builtin macro
+                if let Some(e) = bultin_macro {
+                    e
+                } else {
+                    match eval_ast(expr, env) {
+                        MalType::List(v) => match v.first() {
+                            Some(MalType::BuiltinFn(func)) => func(v.into_iter().skip(1).collect()),
+                            None | Some(_) => {
+                                panic!("expected first element to be a function");
+                            }
+                        },
+                        _ => {
+                            panic!("expected list");
+                        }
                     }
                 }
             }
