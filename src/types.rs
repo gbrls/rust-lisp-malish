@@ -41,3 +41,9 @@ impl std::fmt::Display for MalType {
         }
     }
 }
+
+impl MalType {
+    pub fn to_bool(&self) -> bool {
+        !matches!(&self, MalType::Nil | MalType::Bool(false))
+    }
+}

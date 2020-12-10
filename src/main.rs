@@ -35,7 +35,7 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
             if list.is_empty() {
                 expr
             } else {
-                let bultin_macro = match list.first() {
+                let special_symbol = match list.first() {
                     Some(MalType::Symbol(sym)) => match sym.as_ref() {
                         "def!" => {
                             if let MalType::Symbol(a_name) = &list[1] {
@@ -48,7 +48,8 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
 
                         "let*" => {
                             if let MalType::List(bindings) = &list[1] {
-                                let inner_env = Rc::new(Env::new(Some(Rc::clone(&env))));
+                                let inner_env =
+                                    Rc::new(Env::new(Some(Rc::clone(&env)), Vec::new()));
                                 for binding in bindings {
                                     if let MalType::List(list) = binding {
                                         if let [MalType::Symbol(k), v] = &list[..] {
@@ -65,13 +66,49 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
                                 panic!("Expected list of bindings, found {:?}", &list[1]);
                             }
                         }
+
+                        "do" => {
+                            //TODO: check if this is right
+                            let ev: Vec<MalType> = list
+                                .iter()
+                                .skip(1)
+                                .map(|x| eval(x.to_owned(), Rc::clone(&env))) //TODO: maybe eval_ast here?
+                                .collect();
+
+                            let e = ev.last().unwrap();
+                            Some(e.to_owned())
+                        }
+
+                        "if" => {
+                            if list[1].to_bool() {
+                                Some(eval((&list[2]).to_owned(), Rc::clone(&env)))
+                            } else {
+                                Some(eval((&list[3]).to_owned(), Rc::clone(&env)))
+                            }
+                        }
+
+                        "fn*" => {
+                            if let MalType::List(binds) = &list[1] {
+                                let nenv = Rc::new(Env::new(Some(Rc::clone(&env)), Vec::new()));
+
+                                let closure = |args: Vec<MalType>| {
+                                    println!("{:?}", args);
+                                    MalType::Nil
+                                };
+
+                                Some(MalType::BuiltinFn(closure))
+                            } else {
+                                panic!("Expected argument list, found {:?}", &list[1])
+                            }
+                        }
+
                         _ => None,
                     },
                     _ => None,
                 };
 
                 // we first test if the typed expression is a builtin macro
-                if let Some(e) = bultin_macro {
+                if let Some(e) = special_symbol {
                     e
                 } else {
                     match eval_ast(expr, env) {
@@ -128,7 +165,7 @@ fn builtin_mult(args: Vec<MalType>) -> MalType {
 fn main() {
     let mut rl = rustyline::Editor::<()>::new();
 
-    let env = Rc::new(env::Env::new(None));
+    let env = Rc::new(env::Env::new(None, Vec::new()));
     println!("new env: {:?}", env);
 
     env.set("+", MalType::BuiltinFn(builtin_add));
@@ -139,7 +176,7 @@ fn main() {
         match line_result {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                println!("<{}>", rep(line, Rc::clone(&env)));
+                println!("{}", rep(line, Rc::clone(&env)));
             }
 
             Err(rustyline::error::ReadlineError::Eof) => {

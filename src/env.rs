@@ -9,11 +9,17 @@ pub struct Env {
 }
 
 impl Env {
-    pub fn new(outer: Option<Rc<Env>>) -> Env {
-        Env {
+    pub fn new(outer: Option<Rc<Env>>, binds: Vec<(String, MalType)>) -> Env {
+        let env = Env {
             data: RefCell::new(HashMap::new()),
             outer,
+        };
+
+        for (v, e) in binds {
+            env.set(v.as_ref(), e);
         }
+
+        env
     }
 
     pub fn find(&self, key: &str) -> Option<MalType> {
@@ -36,8 +42,8 @@ mod tests {
     use super::*;
     #[test]
     fn test_find() {
-        let outer_env = Rc::new(Env::new(None));
-        let inner_env = Rc::new(Env::new(Some(Rc::clone(&outer_env))));
+        let outer_env = Rc::new(Env::new(None, Vec::new()));
+        let inner_env = Rc::new(Env::new(Some(Rc::clone(&outer_env)), Vec::new()));
 
         inner_env.set("a", MalType::Number(1.0));
         outer_env.set("b", MalType::Number(2.0));
