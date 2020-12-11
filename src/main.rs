@@ -1,6 +1,6 @@
 use env::Env;
-use std::{collections::HashMap, rc::Rc};
-use types::{MalFn, MalType};
+use std::rc::Rc;
+use types::MalType;
 
 #[macro_use]
 extern crate lazy_static;
@@ -30,7 +30,7 @@ fn eval_ast(expr: MalType, env: Rc<Env>) -> MalType {
 }
 
 fn eval(expr: MalType, env: Rc<Env>) -> MalType {
-    match &expr {
+    match expr.to_owned() {
         MalType::List(list) => {
             if list.is_empty() {
                 expr
@@ -88,15 +88,31 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
                         }
 
                         "fn*" => {
-                            if let MalType::List(binds) = &list[1] {
-                                let nenv = Rc::new(Env::new(Some(Rc::clone(&env)), Vec::new()));
+                            if let MalType::List(binds) = list[1].to_owned() {
+                                let env_cpy = Rc::clone(&env);
+                                let closure = move |args: Vec<MalType>| {
+                                    let mut new_binds: Vec<(String, MalType)> = Vec::new();
 
-                                let closure = |args: Vec<MalType>| {
-                                    println!("{:?}", args);
-                                    MalType::Nil
+                                    for (k, v) in binds.iter().zip(args.iter()) {
+                                        if let MalType::Symbol(sym) = k {
+                                            new_binds.push((sym.to_owned(), v.to_owned()));
+                                        } else {
+                                            panic!(
+                                                "cant pass {:?} as a symbol in function arguments",
+                                                k
+                                            );
+                                        }
+                                    }
+
+                                    let nenv =
+                                        Rc::new(Env::new(Some(Rc::clone(&env_cpy)), new_binds));
+
+                                    let fn_expr = list[2].to_owned();
+
+                                    eval(fn_expr, Rc::clone(&nenv))
                                 };
 
-                                Some(MalType::BuiltinFn(closure))
+                                Some(MalType::UserFn(Rc::new(closure)))
                             } else {
                                 panic!("Expected argument list, found {:?}", &list[1])
                             }
@@ -111,9 +127,14 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
                 if let Some(e) = special_symbol {
                     e
                 } else {
-                    match eval_ast(expr, env) {
+                    match eval_ast(expr, Rc::clone(&env)) {
                         MalType::List(v) => match v.first() {
-                            Some(MalType::BuiltinFn(func)) => func(v.into_iter().skip(1).collect()),
+                            Some(MalType::BuiltinFn(func)) => {
+                                func(v.clone().into_iter().skip(1).collect())
+                            }
+                            Some(MalType::UserFn(func)) => {
+                                func(v.clone().into_iter().skip(1).collect())
+                            }
                             None | Some(_) => {
                                 panic!("expected first element to be a function");
                             }
@@ -126,7 +147,7 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
             }
         }
 
-        x => eval_ast(x.to_owned(), env),
+        x => eval_ast(x, env),
     }
 }
 
@@ -166,7 +187,6 @@ fn main() {
     let mut rl = rustyline::Editor::<()>::new();
 
     let env = Rc::new(env::Env::new(None, Vec::new()));
-    println!("new env: {:?}", env);
 
     env.set("+", MalType::BuiltinFn(builtin_add));
     env.set("*", MalType::BuiltinFn(builtin_mult));

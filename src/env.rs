@@ -1,8 +1,8 @@
 use crate::types::*;
-use std::{borrow::BorrowMut, collections::HashMap};
+use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Env {
     data: RefCell<HashMap<String, MalType>>,
     outer: Option<Rc<Env>>,
