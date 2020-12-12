@@ -5,6 +5,10 @@ use types::MalType;
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate colour;
+
+mod core;
 mod env;
 mod reader;
 mod types;
@@ -68,11 +72,10 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
                         }
 
                         "do" => {
-                            //TODO: check if this is right
                             let ev: Vec<MalType> = list
                                 .iter()
                                 .skip(1)
-                                .map(|x| eval(x.to_owned(), Rc::clone(&env))) //TODO: maybe eval_ast here?
+                                .map(|x| eval(x.to_owned(), Rc::clone(&env))) //TODO: maybe eval_ast here? (Check if this is right)
                                 .collect();
 
                             let e = ev.last().unwrap();
@@ -87,8 +90,8 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
                             }
                         }
 
-                        "fn*" => {
-                            if let MalType::List(binds) = list[1].to_owned() {
+                        "fn*" => match list[1].to_owned() {
+                            MalType::List(binds) => {
                                 let env_cpy = Rc::clone(&env);
                                 let closure = move |args: Vec<MalType>| {
                                     let mut new_binds: Vec<(String, MalType)> = Vec::new();
@@ -113,10 +116,9 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
                                 };
 
                                 Some(MalType::UserFn(Rc::new(closure)))
-                            } else {
-                                panic!("Expected argument list, found {:?}", &list[1])
                             }
-                        }
+                            _ => panic!("Expected argument list, found {:?}", &list[1]),
+                        },
 
                         _ => None,
                     },
@@ -159,37 +161,15 @@ fn rep(input: String, env: Rc<Env>) -> String {
     print(eval(read(input.as_str()), env))
 }
 
-fn builtin_add(args: Vec<MalType>) -> MalType {
-    fn to_f64(v: &MalType) -> f64 {
-        match v {
-            MalType::Number(x) => *x,
-            _ => panic!("Expected number to add"),
-        }
-    }
-    let sum = args.iter().map(|x| to_f64(x)).fold(0.0, |acc, v| acc + v);
-
-    MalType::Number(sum)
-}
-
-fn builtin_mult(args: Vec<MalType>) -> MalType {
-    fn to_f64(v: &MalType) -> f64 {
-        match v {
-            MalType::Number(x) => *x,
-            _ => panic!("Expected number to multiply"),
-        }
-    }
-    let sum = args.iter().map(|x| to_f64(x)).fold(1.0, |acc, v| acc * v);
-
-    MalType::Number(sum)
-}
-
 fn main() {
     let mut rl = rustyline::Editor::<()>::new();
 
     let env = Rc::new(env::Env::new(None, Vec::new()));
 
-    env.set("+", MalType::BuiltinFn(builtin_add));
-    env.set("*", MalType::BuiltinFn(builtin_mult));
+    // loading builtin functions in the outermost enviroment
+    for (name, fun) in core::namespace() {
+        env.set(name.as_ref(), MalType::BuiltinFn(fun));
+    }
 
     loop {
         let line_result = rl.readline("user> ");

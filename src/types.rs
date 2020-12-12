@@ -82,3 +82,37 @@ impl MalType {
         !matches!(&self, MalType::Nil | MalType::Bool(false))
     }
 }
+
+impl PartialEq for MalType {
+    fn eq(&self, other: &Self) -> bool {
+        use MalType::*;
+        match (&self, other) {
+            (Number(a), Number(b)) => a == b,
+            (Symbol(a), Symbol(b)) => a == b,
+            (List(a), List(b)) => a == b,
+            (Nil, Nil) => true,
+            (Bool(a), Bool(b)) => a == b,
+            (_, _) => false,
+        }
+    }
+}
+
+impl std::cmp::PartialOrd for MalType {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        use std::cmp::Ordering;
+        use MalType::*;
+        match (self, other) {
+            (Number(x), Number(y)) => Some(if x < y {
+                Ordering::Less
+            } else if x > y {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            }),
+            (a, b) => match a == b {
+                true => Some(Ordering::Equal),
+                false => None,
+            },
+        }
+    }
+}
