@@ -95,19 +95,55 @@ fn greater_equals(args: Vec<MalType>) -> MalType {
     ))
 }
 
-pub fn namespace() -> Vec<(String, MalFn)> {
+fn read_str(args: Vec<MalType>) -> MalType {
+    match args.first() {
+        Some(Str(s)) => crate::reader::read_str(s.as_ref()),
+        _ => panic!("Expected first argument to read-string to be a string"),
+    }
+}
+
+fn read_file(args: Vec<MalType>) -> MalType {
+    let name = match args.first() {
+        Some(Str(s)) => s,
+        _ => panic!("expected file as argument!"),
+    };
+    let contents = std::fs::read_to_string(name).expect("File not found");
+
+    Str(contents)
+}
+
+fn many_to_str(args: Vec<MalType>) -> MalType {
+    let fmt = args
+        .iter()
+        .map(|x| format!("{}", x))
+        .fold(String::from(""), |acc, x| {
+            if !acc.is_empty() {
+                format!("{} {}", acc, x)
+            } else {
+                x
+            }
+        });
+
+    Str(fmt)
+}
+
+pub fn namespace() -> Vec<(&'static str, MalFn)> {
     vec![
-        (String::from("+"), add),
-        (String::from("*"), mult),
-        (String::from("prn"), prn),
-        (String::from("list"), list),
-        (String::from("list?"), is_list),
-        (String::from("empty?"), is_empty),
-        (String::from("count"), count),
-        (String::from("="), equals),
-        (String::from("<"), less),
-        (String::from("<="), less_equals),
-        (String::from(">"), greater),
-        (String::from(">="), greater_equals),
+        ("+", add),
+        ("*", mult),
+        ("prn", prn),
+        ("list", list),
+        ("list?", is_list),
+        ("empty?", is_empty),
+        ("count", count),
+        ("=", equals),
+        ("<", less),
+        ("<=", less_equals),
+        (">", greater),
+        (">=", greater_equals),
+        ("read-string", read_str),
+        ("read-file", read_file),
+        ("slurp", read_file),
+        ("str", many_to_str),
     ]
 }

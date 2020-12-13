@@ -16,6 +16,7 @@ pub enum MalType {
     Bool(bool),
     BuiltinFn(MalFn),
     UserFn(Rc<dyn Fn(Vec<MalType>) -> MalType>),
+    Str(String),
 }
 
 pub type MalFn = fn(Vec<MalType>) -> MalType;
@@ -35,7 +36,7 @@ impl std::fmt::Display for MalType {
                 let mut it = l.iter().peekable();
 
                 while let Some(el) = it.next() {
-                    el.fmt(f).unwrap();
+                    std::fmt::Display::fmt(&el, f).unwrap();
                     if it.peek().is_some() {
                         write!(f, " ").unwrap();
                     }
@@ -45,6 +46,7 @@ impl std::fmt::Display for MalType {
             }
 
             MalType::UserFn(_) => write!(f, "#<fn>"),
+            MalType::Str(s) => write!(f, "{}", s),
         }
     }
 }
@@ -63,7 +65,7 @@ impl std::fmt::Debug for MalType {
                 let mut it = l.iter().peekable();
 
                 while let Some(el) = it.next() {
-                    el.fmt(f).unwrap();
+                    std::fmt::Debug::fmt(&el, f).unwrap();
                     if it.peek().is_some() {
                         write!(f, " ").unwrap();
                     }
@@ -73,6 +75,7 @@ impl std::fmt::Debug for MalType {
             }
 
             MalType::UserFn(_) => write!(f, "#<fn>"),
+            MalType::Str(s) => write!(f, "{}", s),
         }
     }
 }
@@ -92,6 +95,7 @@ impl PartialEq for MalType {
             (List(a), List(b)) => a == b,
             (Nil, Nil) => true,
             (Bool(a), Bool(b)) => a == b,
+            (Str(a), Str(b)) => a == b,
             (_, _) => false,
         }
     }

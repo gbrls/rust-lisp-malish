@@ -1,0 +1,6 @@
+(prn "Hello, World!")
+(prn "Hello there General Kenobi")
+
+(prn (* 20 40 50))
+
+(def! x 1)

@@ -89,6 +89,7 @@ fn read_atom(reader: &mut Reader) -> types::MalType {
 
     let s = reader.next();
 
+    // keywords
     match s {
         "true" => return Bool(true),
         "false" => return Bool(false),
@@ -96,6 +97,11 @@ fn read_atom(reader: &mut Reader) -> types::MalType {
         _ => (),
     }
 
+    if s.starts_with('"') && s.ends_with('"') {
+        return Str(s[1..(s.len() - 1)].to_owned());
+    }
+
+    // number
     match s.parse::<f64>() {
         Ok(number) => Number(number),
         Err(_) => Symbol(s.to_owned()),

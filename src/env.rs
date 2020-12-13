@@ -5,7 +5,7 @@ use std::{cell::RefCell, rc::Rc};
 #[derive(Debug, Clone)]
 pub struct Env {
     data: RefCell<HashMap<String, MalType>>,
-    outer: Option<Rc<Env>>,
+    pub outer: Option<Rc<Env>>,
 }
 
 impl Env {

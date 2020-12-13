@@ -83,7 +83,7 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
                         }
 
                         "if" => {
-                            if list[1].to_bool() {
+                            if eval(list[1].to_owned(), Rc::clone(&env)).to_bool() {
                                 Some(eval((&list[2]).to_owned(), Rc::clone(&env)))
                             } else {
                                 Some(eval((&list[3]).to_owned(), Rc::clone(&env)))
@@ -119,6 +119,18 @@ fn eval(expr: MalType, env: Rc<Env>) -> MalType {
                             }
                             _ => panic!("Expected argument list, found {:?}", &list[1]),
                         },
+
+                        "eval" => {
+                            // The semantics of this expression are a little bit tricky.
+                            // first we evaluate the argment in the current enviroment.
+                            // then, we evaluate the expression in the REPL enviroment.
+                            let expr = eval(list[1].to_owned(), Rc::clone(&env));
+                            let mut toplevel = &env;
+                            while let Some(e) = &toplevel.outer {
+                                toplevel = e;
+                            }
+                            Some(eval(expr, Rc::clone(&toplevel)))
+                        }
 
                         _ => None,
                     },
@@ -165,6 +177,19 @@ fn main() {
     let mut rl = rustyline::Editor::<()>::new();
 
     let env = Rc::new(env::Env::new(None, Vec::new()));
+
+    // adicionando a função not
+    rep(
+        "(def! not (fn* (a) (if a false true)))".to_owned(),
+        Rc::clone(&env),
+    );
+
+    // função para carregar arquivos
+    rep(
+        "(def! load-file (fn* (f) (eval (read-string (str \"(do\" (slurp f)\"nil\"\")\"))))))"
+            .to_owned(),
+        Rc::clone(&env),
+    );
 
     // loading builtin functions in the outermost enviroment
     for (name, fun) in core::namespace() {
